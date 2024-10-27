@@ -42,14 +42,22 @@ class TimerModel: ObservableObject, Identifiable {
         self.id = id
     }
 
-    func start() {
-        guard !isPaused else { return }
+    func updateVisibility(isVisible: Bool) {
+        if isVisible && !isPaused {
+            start()
+        } else {
+            stop()
+        }
+    }
+
+    private func start() {
+        guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             self.timeElapsed += 0.1
         }
     }
 
-    func stop() {
+    private func stop() {
         timer?.invalidate()
         timer = nil
     }
@@ -72,11 +80,7 @@ struct ContentView: View {
             LazyVStack(spacing: 10) {
                 ForEach(timers) { timer in
                     TimerCell(timerModel: timer) { isVisible in
-                        if isVisible && !timer.isPaused {
-                            timer.start()
-                        } else {
-                            timer.stop()
-                        }
+                        timer.updateVisibility(isVisible: isVisible)
                     }
                 }
             }
