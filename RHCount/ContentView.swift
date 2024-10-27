@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TimerCell: View {
     @ObservedObject var timerModel: TimerModel
+    var onVisibleChange: (Bool) -> Void
 
     var body: some View {
         HStack {
@@ -19,12 +20,15 @@ struct TimerCell: View {
         .background(Color(.systemGray6))
         .cornerRadius(10)
         .padding(.horizontal)
-        .onAppear {
-            timerModel.start()
-        }
-        .onDisappear {
-            timerModel.stop()
-        }
+        .background(
+            GeometryReader { geometry in
+                Color.clear.onChange(of: geometry.frame(in: .global).minY) { _ in
+                    let isVisible = geometry.frame(in: .global).minY < UIScreen.main.bounds.height &&
+                                    geometry.frame(in: .global).maxY > 0
+                    onVisibleChange(isVisible)
+                }
+            }
+        )
     }
 }
 
@@ -39,7 +43,7 @@ class TimerModel: ObservableObject, Identifiable {
     }
 
     func start() {
-        guard !isPaused else { return }  // Only start if not paused
+        guard !isPaused else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             self.timeElapsed += 0.1
         }
@@ -67,7 +71,13 @@ struct ContentView: View {
         ScrollView {
             LazyVStack(spacing: 10) {
                 ForEach(timers) { timer in
-                    TimerCell(timerModel: timer)
+                    TimerCell(timerModel: timer) { isVisible in
+                        if isVisible && !timer.isPaused {
+                            timer.start()
+                        } else {
+                            timer.stop()
+                        }
+                    }
                 }
             }
             .padding(.vertical)
