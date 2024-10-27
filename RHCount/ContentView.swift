@@ -1,51 +1,36 @@
-//
-//  ContentView.swift
-//  RHCount
-//
-//  Created by Lunasol on 10/26/24.
-//
 
 import SwiftUI
 
 struct TimerCell: View {
     @ObservedObject var timerModel: TimerModel
+    var isFocused: Bool
 
     var body: some View {
         HStack {
             Text("Timer \(timerModel.id): \(timerModel.timeElapsed, specifier: "%.1f") s")
                 .padding()
             Spacer()
-            Button(action: {
-                timerModel.toggle()
-            }) {
-                Text(timerModel.isActive ? "Pause" : "Start")
-                    .foregroundColor(.blue)
-            }
-            .padding()
         }
-        .background(Color(.systemGray6))
+        .background(isFocused ? Color.blue.opacity(0.2) : Color(.systemGray6))
         .cornerRadius(10)
         .padding(.horizontal)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isFocused ? .isSelected : [])
     }
 }
 
 class TimerModel: ObservableObject, Identifiable {
     let id: Int
     @Published var timeElapsed: Double = 0.0
-    @Published var isActive: Bool = false
-    var timer: Timer?
+    @Published var isActive: Bool = false {
+        didSet {
+            isActive ? start() : stop()
+        }
+    }
+    private var timer: Timer?
 
     init(id: Int) {
         self.id = id
-    }
-
-    func toggle() {
-        isActive.toggle()
-        if isActive {
-            start()
-        } else {
-            stop()
-        }
     }
 
     private func start() {
@@ -60,17 +45,62 @@ class TimerModel: ObservableObject, Identifiable {
     }
 }
 
+struct AccessibilityFocusController: UIViewRepresentable {
+    @Binding var focusedIndex: Int?
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        DispatchQueue.main.async {
+            self.updateAccessibilityFocus()
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        updateAccessibilityFocus()
+    }
+
+    private func updateAccessibilityFocus() {
+        guard let index = focusedIndex else { return }
+        let announcement = "Focused on Timer \(index)"
+        UIAccessibility.post(notification: .layoutChanged, argument: announcement)
+    }
+}
+
 struct ContentView: View {
     @State private var timers: [TimerModel] = (0..<50).map { TimerModel(id: $0) }
+    @State private var focusedIndex: Int? = nil
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                ForEach(timers) { timer in
-                    TimerCell(timerModel: timer)
+        ZStack {
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(timers) { timer in
+                        TimerCell(timerModel: timer, isFocused: focusedIndex == timer.id)
+                            .onTapGesture {
+                                if focusedIndex == timer.id {
+                                    focusedIndex = nil // Remove focus
+                                } else {
+                                    focusedIndex = timer.id // Set focus to tapped cell
+                                }
+                            }
+                            .onChange(of: focusedIndex) { newFocus in
+                                if newFocus == timer.id {
+                                    timer.isActive = true
+                                } else {
+                                    timer.isActive = false
+                                }
+                            }
+                    }
                 }
+                .padding(.vertical)
             }
-            .padding(.vertical)
+            
+            // Accessibility Focus Controller
+            AccessibilityFocusController(focusedIndex: $focusedIndex)
+                .frame(width: 1, height: 1)
+//                .hidden()
         }
     }
 }
+
