@@ -17,18 +17,21 @@ struct TimerCell: View {
             }
             .padding()
         }
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
-        .padding(.horizontal)
         .background(
             GeometryReader { geometry in
-                Color.clear.onChange(of: geometry.frame(in: .global).minY) { _ in
-                    let isVisible = geometry.frame(in: .global).minY < UIScreen.main.bounds.height &&
-                                    geometry.frame(in: .global).maxY > 0
-                    onVisibleChange(isVisible)
-                }
+                let centerY = geometry.frame(in: .global).midY
+                let screenHeight = UIScreen.main.bounds.height
+                let isCentered = abs(centerY - screenHeight / 2) < 50 // 中心±50范围内
+
+                Color.clear
+                    .background(isCentered ? Color.red : Color(.systemGray6))
+                    .onChange(of: centerY) { _ in
+                        onVisibleChange(isCentered)
+                    }
             }
         )
+        .cornerRadius(10)
+        .padding(.horizontal)
     }
 }
 
