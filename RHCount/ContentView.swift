@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct TimerCell: View {
     @ObservedObject var timerModel: TimerModel
@@ -32,31 +33,38 @@ class TimerModel: ObservableObject, Identifiable {
     let id: Int
     @Published var timeElapsed: Double = 0.0
     @Published var isPaused: Bool = false
-    private var timer: Timer?
+
+    private var cancellable: AnyCancellable?
 
     init(id: Int) {
         self.id = id
     }
 
     func start() {
-        guard !isPaused else { return }  // Only start if not paused
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            self.timeElapsed += 0.1
-        }
-        RunLoop.current.add(timer!, forMode: .common)
+        if isPaused { return } // If paused, don't start
+
+        // Combine publisher that emits every 0.1 seconds
+        cancellable = Timer.publish(every: 0.1, on: .main, in: .common)
+            .autoconnect()  // Automatically starts the timer when subscribed
+            .filter { [weak self] _ in
+                self?.isPaused == false // Only pass through when not paused
+            }
+            .sink { [weak self] _ in
+                self?.timeElapsed += 0.1
+            }
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
+        cancellable?.cancel()
+        cancellable = nil
     }
 
     func togglePause() {
         isPaused.toggle()
         if isPaused {
-            stop()
+            stop() // Cancel the timer updates
         } else {
-            start()
+            start() // Resume the timer updates
         }
     }
 }
