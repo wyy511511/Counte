@@ -2,7 +2,6 @@ import SwiftUI
 
 struct TimerCell: View {
     @ObservedObject var timerModel: TimerModel
-    var onVisibleChange: (Bool) -> Void
 
     var body: some View {
         HStack {
@@ -17,21 +16,15 @@ struct TimerCell: View {
             }
             .padding()
         }
-        .background(
-            GeometryReader { geometry in
-                let centerY = geometry.frame(in: .global).midY
-                let screenHeight = UIScreen.main.bounds.height
-                let isCentered = abs(centerY - screenHeight / 2) < 50 // 中心±50范围内
-
-                Color.clear
-                    .background(isCentered ? Color.red : Color(.systemGray6))
-                    .onChange(of: centerY) { _ in
-                        onVisibleChange(isCentered)
-                    }
-            }
-        )
+        .background(Color(.systemGray6))
         .cornerRadius(10)
         .padding(.horizontal)
+        .onAppear {
+            timerModel.start()
+        }
+        .onDisappear {
+            timerModel.stop()
+        }
     }
 }
 
@@ -45,22 +38,15 @@ class TimerModel: ObservableObject, Identifiable {
         self.id = id
     }
 
-    func updateVisibility(isVisible: Bool) {
-        if isVisible && !isPaused {
-            start()
-        } else {
-            stop()
-        }
-    }
-
-    private func start() {
-        guard timer == nil else { return }
+    func start() {
+        guard !isPaused else { return }  // Only start if not paused
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             self.timeElapsed += 0.1
         }
+        RunLoop.current.add(timer!, forMode: .common)
     }
 
-    private func stop() {
+    func stop() {
         timer?.invalidate()
         timer = nil
     }
@@ -82,9 +68,7 @@ struct ContentView: View {
         ScrollView {
             LazyVStack(spacing: 10) {
                 ForEach(timers) { timer in
-                    TimerCell(timerModel: timer) { isVisible in
-                        timer.updateVisibility(isVisible: isVisible)
-                    }
+                    TimerCell(timerModel: timer)
                 }
             }
             .padding(.vertical)
