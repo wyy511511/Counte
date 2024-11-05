@@ -1,3 +1,5 @@
+
+
 import SwiftUI
 import Combine
 
@@ -5,7 +7,15 @@ struct TimeCell: View {
     @ObservedObject  var timerModel: TimerModel// why not private
     var body: some View {
         
-        Text("\(timerModel.id):\(timerModel.timePassed)")
+        HStack{
+            Text("\(timerModel.id):\(timerModel.timePassed)")
+            Button(action: {
+                timerModel.togglePause()
+            }){
+                Text(timerModel.isPaused ? "resume":"stop")
+                
+            }
+        }
             .onAppear{
                 timerModel.start()
             }
@@ -18,6 +28,7 @@ struct TimeCell: View {
 class TimerModel: ObservableObject, Identifiable{
     let id:Int
     @Published  var timePassed: Double = 0//不是private 否则 CellView里看不见
+    @Published var isPaused : Bool = false
     
     private var cancellable: AnyCancellable?
     
@@ -27,8 +38,12 @@ class TimerModel: ObservableObject, Identifiable{
     }
     
     func start(){
+        if isPaused {return }
         cancellable = Timer.publish(every: 0.1, on:.main , in: .default)
             .autoconnect()
+            .filter{ [weak self] _ in
+                self?.isPaused == false
+            }
             .sink{ [weak self] _ in
                 self?.timePassed += 0.1 //why self 不加 [weak self] 这个的话就不让用啊
             }
@@ -38,7 +53,14 @@ class TimerModel: ObservableObject, Identifiable{
         cancellable = nil
     }
     
-    
+    func togglePause(){
+        isPaused.toggle()
+        if isPaused{ //为啥要加这一部分
+            stop()
+        }else{
+            start()
+        }
+    }
 }
 
 
